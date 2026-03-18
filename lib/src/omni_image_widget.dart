@@ -484,8 +484,6 @@ class _DefaultErrorWidgetState extends State<_DefaultErrorWidget>
   void _handleRetry() {
     if (_isRetrying) return;
     setState(() => _isRetrying = true);
-
-    // Spin the icon then call retry
     _controller.forward(from: 0).then((_) {
       setState(() => _isRetrying = false);
       widget.onRetry?.call();
@@ -496,57 +494,71 @@ class _DefaultErrorWidgetState extends State<_DefaultErrorWidget>
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFFF8F8F8),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Spinning retry icon
-            GestureDetector(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          final isSmall = w < 60 || h < 60;
+          final isTiny = w < 36 || h < 36;
+
+          // حساب حجم الأيقونة بناءً على المساحة المتاحة
+          final iconContainerSize = (isSmall ? w.clamp(24.0, 36.0) : 48.0);
+          final iconSize = iconContainerSize * 0.5;
+
+          return Center(
+            child: GestureDetector(
               onTap: _handleRetry,
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  return Transform.rotate(
-                    angle: _controller.value * 6.28, // full 360°
-                    child: child,
-                  );
-                },
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon
+                  AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, child) => Transform.rotate(
+                      angle: _controller.value * 6.28,
+                      child: child,
+                    ),
+                    child: Container(
+                      width: iconContainerSize,
+                      height: iconContainerSize,
+                      decoration: isTiny
+                          ? null // مفيش decoration لو صغير جداً
+                          : BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        color: const Color(0xFFAAAAAA),
+                        size: iconSize,
                       ),
-                    ],
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.refresh_rounded,
-                    color: Color(0xFFAAAAAA),
-                    size: 24,
-                  ),
-                ),
+
+                  // Text — بيظهر بس لو فيه مساحة كافية
+                  if (!isSmall) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _isRetrying ? 'Retrying...' : 'Tap to retry',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFFBBBBBB),
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-
-            const SizedBox(height: 8),
-
-            // Small label
-            Text(
-              _isRetrying ? 'Retrying...' : 'Tap to retry',
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFFBBBBBB),
-                letterSpacing: 0.3,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

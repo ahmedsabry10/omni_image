@@ -492,73 +492,81 @@ class _DefaultErrorWidgetState extends State<_DefaultErrorWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFF8F8F8),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final w = constraints.maxWidth;
-          final h = constraints.maxHeight;
-          final isSmall = w < 60 || h < 60;
-          final isTiny = w < 36 || h < 36;
+    return ClipRect( // ✅ يمنع أي overflow يطلع برا الحدود
+      child: Container(
+        color: const Color(0xFFF8F8F8),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final h = constraints.maxHeight;
+            final minSide = w < h ? w : h; // أصغر بعد
 
-          // حساب حجم الأيقونة بناءً على المساحة المتاحة
-          final iconContainerSize = (isSmall ? w.clamp(24.0, 36.0) : 48.0);
-          final iconSize = iconContainerSize * 0.5;
+            // حجم الأيقونة = 60% من أصغر بعد، بحد أقصى 24
+            final iconSize = (minSide * 0.6).clamp(4.0, 24.0);
 
-          return Center(
-            child: GestureDetector(
+            // نعرض الـ container المدور بس لو فيه مساحة كافية
+            final showCircle = minSide >= 32;
+
+            // نعرض النص بس لو فيه مساحة كافية
+            final showText = w >= 60 && h >= 72;
+
+            return GestureDetector(
               onTap: _handleRetry,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Icon
-                  AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, child) => Transform.rotate(
-                      angle: _controller.value * 6.28,
-                      child: child,
-                    ),
-                    child: Container(
-                      width: iconContainerSize,
-                      height: iconContainerSize,
-                      decoration: isTiny
-                          ? null // مفيش decoration لو صغير جداً
-                          : BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.08),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                      child: Icon(
-                        Icons.refresh_rounded,
-                        color: const Color(0xFFAAAAAA),
-                        size: iconSize,
-                      ),
-                    ),
+              behavior: HitTestBehavior.opaque,
+              child: Center(
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) => Transform.rotate(
+                    angle: _controller.value * 6.28,
+                    child: child,
                   ),
-
-                  // Text — بيظهر بس لو فيه مساحة كافية
-                  if (!isSmall) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      _isRetrying ? 'Retrying...' : 'Tap to retry',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFFBBBBBB),
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ],
-                ],
+                  child: showCircle
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: minSide * 0.7,
+                              height: minSide * 0.7,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.refresh_rounded,
+                                color: const Color(0xFFAAAAAA),
+                                size: iconSize,
+                              ),
+                            ),
+                            if (showText) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                _isRetrying ? 'Retrying...' : 'Tap to retry',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFFBBBBBB),
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
+                          ],
+                        )
+                      : Icon( // صغير جداً — icon بس بدون أي wrapper
+                          Icons.refresh_rounded,
+                          color: const Color(0xFFAAAAAA),
+                          size: iconSize,
+                        ),
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

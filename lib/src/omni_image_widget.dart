@@ -24,6 +24,10 @@ typedef FallbackBuilder = Widget Function(
   StackTrace? stackTrace,
   VoidCallback retry,
 );
+typedef LoadingBuilder = Widget Function(
+  BuildContext context, {
+  double? progress,
+});
 
 /// OmniImage — one widget for all your image needs.
 ///
@@ -55,6 +59,7 @@ class OmniImage extends StatefulWidget {
     // Placeholder
     this.placeholder = ImagePlaceholder.shimmer,
     this.placeholderWidget,
+    this.loadingBuilder,
     this.blurHash,
     this.placeholderColor,
     // Error
@@ -95,6 +100,12 @@ class OmniImage extends StatefulWidget {
 
   /// Custom placeholder widget (overrides [placeholder])
   final Widget? placeholderWidget;
+
+  /// Builder for a custom loading widget.
+  ///
+  /// If provided, it overrides [placeholderWidget] and [placeholder] and can
+  /// optionally receive network download progress \(0.0 → 1.0\).
+  final LoadingBuilder? loadingBuilder;
 
   /// BlurHash string for [ImagePlaceholder.blurHash]
   final String? blurHash;
@@ -254,18 +265,21 @@ class _OmniImageState extends State<OmniImage> {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 widget.onProgress?.call(progress.progress ?? 0);
               });
-              return _buildPlaceholder();
+              return _buildLoading(
+                context,
+                progress: progress.progress,
+              );
             }
           : null,
 
       placeholder: widget.onProgress == null
-          ? (context, url) => _buildPlaceholder()
+          ? (context, url) => _buildLoading(context)
           : null,
 
       // ✅ FIX: use _handleError which defers setState safely
       errorWidget: (context, url, error) {
         _handleError(error, null);
-        return _buildPlaceholder(); // show placeholder while error state updates
+        return _buildLoading(context); // show loading while error state updates
       },
 
       // ✅ FIX: call onLoad via addPostFrameCallback — never during build
@@ -294,7 +308,7 @@ class _OmniImageState extends State<OmniImage> {
       frameBuilder: _fadeFrameBuilder,
       errorBuilder: (context, error, stackTrace) {
         _handleError(error, stackTrace);
-        return _buildPlaceholder();
+        return _buildLoading(context);
       },
     );
   }
@@ -310,7 +324,7 @@ class _OmniImageState extends State<OmniImage> {
       frameBuilder: _fadeFrameBuilder,
       errorBuilder: (context, error, stackTrace) {
         _handleError(error, stackTrace);
-        return _buildPlaceholder();
+        return _buildLoading(context);
       },
     );
   }
@@ -330,13 +344,13 @@ class _OmniImageState extends State<OmniImage> {
         frameBuilder: _fadeFrameBuilder,
         errorBuilder: (context, error, stackTrace) {
           _handleError(error, stackTrace);
-          return _buildPlaceholder();
+          return _buildLoading(context);
         },
       );
     } catch (e, s) {
       // Can't call setState here directly — schedule it
       WidgetsBinding.instance.addPostFrameCallback((_) => _handleError(e, s));
-      return _buildPlaceholder();
+      return _buildLoading(context);
     }
   }
 
@@ -354,7 +368,7 @@ class _OmniImageState extends State<OmniImage> {
         fit: widget.fit,
         headers: widget.headers ?? {},
         colorFilter: colorFilter,
-        placeholderBuilder: (_) => _buildPlaceholder(),
+        placeholderBuilder: (context) => _buildLoading(context),
       );
     }
 
@@ -364,13 +378,21 @@ class _OmniImageState extends State<OmniImage> {
       height: widget.height,
       fit: widget.fit,
       colorFilter: colorFilter,
-      placeholderBuilder: (_) => _buildPlaceholder(),
+      placeholderBuilder: (context) => _buildLoading(context),
     );
   }
 
   // ── Placeholder ──────────────────────────────────────────────────────────
 
-  Widget _buildPlaceholder() {
+  Widget _buildLoading(
+    BuildContext context, {
+    double? progress,
+  }) {
+    final loadingBuilder = widget.loadingBuilder;
+    if (loadingBuilder != null) {
+      return loadingBuilder(context, progress: progress);
+    }
+
     if (widget.placeholderWidget != null) return widget.placeholderWidget!;
 
     switch (widget.placeholder) {
